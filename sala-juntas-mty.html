@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sala de Juntas MTY</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #08080A;
+      --surface: rgba(255,255,255,0.04);
+      --surface-hover: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.07);
+      --text: #F0F0F2;
+      --text-muted: rgba(240,240,242,0.45);
+      --green: #34C759;
+      --green-dim: rgba(52,199,89,0.12);
+      --green-glow: rgba(52,199,89,0.15);
+      --red: #FF3B30;
+      --red-dim: rgba(255,59,48,0.10);
+      --red-glow: rgba(255,59,48,0.15);
+      --yellow: #FFD60A;
+      --blue: #0A84FF;
+      --blue-dim: rgba(10,132,255,0.15);
+      --orange: #FF9500;
+      --orange-dim: rgba(255,149,0,0.12);
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); min-height: 100vh;
+      overflow: hidden; -webkit-font-smoothing: antialiased;
+    }
+    .app {
+      display: grid; grid-template-rows: auto 1fr auto;
+      height: 100vh; padding: 36px 44px; position: relative;
+    }
+    .glow {
+      position: fixed; width: 500px; height: 500px;
+      border-radius: 50%; pointer-events: none;
+      transition: background 2.5s ease; filter: blur(10px);
+    }
+    .glow--top { top: -220px; right: -150px; }
+    .glow--bottom { bottom: -280px; left: -80px; background: radial-gradient(circle, rgba(255,255,255,0.015) 0%, transparent 70%); }
+    .glow--green { background: radial-gradient(circle, var(--green-glow) 0%, transparent 70%); }
+    .glow--red { background: radial-gradient(circle, var(--red-glow) 0%, transparent 70%); }
+
+    .header {
+      display: flex; justify-content: space-between;
+      align-items: flex-start; position: relative; z-index: 2;
+    }
+    .brand-tag {
+      font-family: var(--mono); font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.16em; color: var(--text-muted); margin-bottom: 6px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .pulse-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      transition: background 1s, box-shadow 1s;
+    }
+    .pulse-dot--green { background: var(--green); box-shadow: 0 0 14px var(--green); }
+    .pulse-dot--red { background: var(--red); box-shadow: 0 0 14px var(--red); animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.4); }
+    }
+    .room-name { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+    .clock { text-align: right; }
+    .clock-time { font-family: var(--mono); font-size: 3rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+    .clock-seconds { font-size: 1.2rem; opacity: 0.35; margin-left: 3px; }
+    .clock-date { font-size: 0.88rem; color: var(--text-muted); margin-top: 5px; font-weight: 500; text-transform: capitalize; }
+
+    .status-section { position: relative; z-index: 2; margin-top: 32px; }
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 9px 22px; border-radius: 50px;
+      font-family: var(--mono); font-weight: 700;
+      font-size: 0.78rem; letter-spacing: 0.13em;
+      transition: all 0.5s ease;
+    }
+    .status-badge--green { background: var(--green-dim); color: var(--green); border: 1.5px solid rgba(52,199,89,0.2); }
+    .status-badge--red { background: var(--red-dim); color: var(--red); border: 1.5px solid rgba(255,59,48,0.2); }
+    .status-badge__dot { font-size: 0.6rem; }
+    .status-detail { margin-top: 18px; }
+    .status-title { font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; }
+    .status-title--green { color: var(--green); }
+    .status-organizer { color: var(--text-muted); font-size: 0.95rem; margin-top: 6px; }
+    .status-meta { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .time-chip {
+      font-family: var(--mono); font-size: 0.78rem; font-weight: 600;
+      padding: 5px 14px; border-radius: 8px;
+    }
+    .time-chip--red { background: var(--red-dim); color: var(--red); }
+    .time-chip--muted { background: var(--surface); color: var(--text-muted); }
+    .progress-track {
+      width: 100%; height: 5px; border-radius: 5px;
+      background: var(--surface); margin-top: 16px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; border-radius: 5px; background: var(--red);
+      transition: width 1s ease;
+    }
+
+    .content {
+      display: grid; grid-template-columns: 1fr 320px;
+      gap: 36px; position: relative; z-index: 2;
+      align-content: end; padding-bottom: 24px;
+    }
+    .divider {
+      grid-column: 1 / -1; height: 1px;
+      background: linear-gradient(90deg, var(--border) 0%, transparent 100%);
+      margin-bottom: 4px;
+    }
+    .section-label {
+      font-family: var(--mono); font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.18em; color: var(--text-muted); margin-bottom: 16px;
+    }
+
+    .timeline { display: flex; flex-direction: column; gap: 10px; max-height: 260px; overflow-y: auto; }
+    .event {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 18px; border-radius: 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      transition: all 0.3s ease;
+    }
+    .event:hover { background: var(--surface-hover); }
+    .event--active { border-color: rgba(255,59,48,0.25); background: var(--red-dim); }
+    .event__bar { width: 4px; height: 36px; border-radius: 3px; flex-shrink: 0; }
+    .event__bar--green { background: var(--green); }
+    .event__bar--red { background: var(--red); }
+    .event__info { flex: 1; min-width: 0; }
+    .event__name { font-weight: 700; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .event__time { font-family: var(--mono); font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; }
+    .event__tag {
+      font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+      padding: 3px 10px; border-radius: 6px; flex-shrink: 0;
+    }
+    .event__tag--now { background: var(--red-dim); color: var(--red); }
+    .event__organizer { font-size: 0.78rem; color: var(--text-muted); flex-shrink: 0; }
+    .timeline-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 40px; color: var(--text-muted); gap: 8px;
+    }
+    .timeline-empty__icon { font-size: 2rem; opacity: 0.3; }
+    .timeline-empty__text { font-size: 0.85rem; }
+
+    .sidebar { display: flex; flex-direction: column; gap: 14px; }
+    .book-btn {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      padding: 18px 28px; border-radius: 16px; border: none;
+      background: linear-gradient(135deg, var(--green) 0%, #2AA94A 100%);
+      color: #fff; font-family: var(--sans); font-size: 1.08rem;
+      font-weight: 800; cursor: pointer; transition: all 0.3s ease;
+      box-shadow: 0 4px 20px rgba(52,199,89,0.3);
+    }
+    .book-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(52,199,89,0.4); }
+    .book-btn:active { transform: translateY(0); }
+    .use-now-btn {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      padding: 18px 28px; border-radius: 16px; border: none;
+      background: linear-gradient(135deg, var(--blue) 0%, #0066CC 100%);
+      color: #fff; font-family: var(--sans); font-size: 1.08rem;
+      font-weight: 800; cursor: pointer; transition: all 0.3s ease;
+      box-shadow: 0 4px 20px rgba(10,132,255,0.3);
+    }
+    .use-now-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(10,132,255,0.4); }
+    .use-now-btn:active { transform: translateY(0); }
+    .release-btn {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      padding: 18px 28px; border-radius: 16px; border: 2px solid rgba(255,149,0,0.4);
+      background: var(--orange-dim);
+      color: var(--orange); font-family: var(--sans); font-size: 1.08rem;
+      font-weight: 800; cursor: pointer; transition: all 0.3s ease;
+    }
+    .release-btn:hover { background: rgba(255,149,0,0.18); border-color: rgba(255,149,0,0.6); transform: translateY(-2px); }
+    .release-btn:active { transform: translateY(0); }
+    .btn-hidden { display: none !important; }
+
+    .how-to-book {
+      background: var(--surface); border-radius: 14px;
+      padding: 18px 20px; border: 1px solid var(--border);
+    }
+    .how-to-book__title {
+      font-family: var(--mono); font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.14em; color: var(--text-muted); margin-bottom: 14px;
+    }
+    .how-to-book__step {
+      font-size: 0.82rem; color: var(--text-muted); line-height: 1.7;
+      display: flex; gap: 8px;
+    }
+    .how-to-book__step strong { color: var(--text); }
+    .meta {
+      font-family: var(--mono); font-size: 0.7rem;
+      color: var(--text-muted); margin-top: 8px; line-height: 1.7;
+    }
+    .meta__connected { color: var(--green); }
+
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+      display: none; align-items: center; justify-content: center; z-index: 100;
+    }
+    .modal-overlay--open { display: flex; }
+    .modal {
+      background: #111114; border-radius: 22px; padding: 36px;
+      width: 90%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+      border: 1px solid var(--border); position: relative;
+    }
+    .modal__close {
+      position: absolute; top: 16px; right: 20px;
+      background: none; border: none; color: var(--text-muted);
+      font-size: 1.5rem; cursor: pointer;
+    }
+    .modal__title { font-size: 1.25rem; font-weight: 800; margin-bottom: 6px; }
+    .modal__subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 22px; }
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block; font-family: var(--mono); font-size: 0.72rem;
+      font-weight: 600; letter-spacing: 0.08em; color: var(--text-muted);
+      margin-bottom: 8px; text-transform: uppercase;
+    }
+    .form-input {
+      width: 100%; padding: 12px 16px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); font-family: var(--sans); font-size: 0.92rem;
+    }
+    .form-input:focus { outline: none; border-color: rgba(52,199,89,0.4); }
+    .form-submit {
+      width: 100%; padding: 14px; border-radius: 12px; border: none;
+      background: linear-gradient(135deg, var(--green) 0%, #2AA94A 100%);
+      color: #fff; font-family: var(--sans); font-size: 0.95rem;
+      font-weight: 700; cursor: pointer; margin-top: 10px;
+    }
+    .form-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .form-submit--blue { background: linear-gradient(135deg, var(--blue) 0%, #0066CC 100%); }
+    .form-msg { font-size: 0.82rem; margin-top: 10px; text-align: center; }
+    .form-msg--ok { color: var(--green); }
+    .form-msg--err { color: var(--red); }
+    .form-hint {
+      font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;
+      font-family: var(--mono);
+    }
+    .form-now-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 16px; border-radius: 10px;
+      background: var(--blue-dim); color: var(--blue);
+      font-family: var(--mono); font-size: 0.88rem; font-weight: 700;
+      margin-bottom: 16px; width: 100%; justify-content: center;
+    }
+
+    /* =====================================================
+       SLOT GRID — selector de horarios disponibles
+       ===================================================== */
+    .slot-section-label {
+      font-family: var(--mono); font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.1em; color: var(--text-muted);
+      margin-bottom: 10px; text-transform: uppercase;
+    }
+    .slot-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+      padding-right: 2px;
+      margin-bottom: 6px;
+    }
+    .slot-grid::-webkit-scrollbar { width: 3px; }
+    .slot-grid::-webkit-scrollbar-track { background: transparent; }
+    .slot-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .slot {
+      padding: 8px 4px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+      user-select: none;
+      line-height: 1.2;
+    }
+    .slot:hover:not(.slot--busy):not(.slot--past) {
+      background: rgba(10,132,255,0.12);
+      border-color: rgba(10,132,255,0.4);
+    }
+    .slot--busy {
+      background: rgba(255,59,48,0.06);
+      border-color: rgba(255,59,48,0.15);
+      color: rgba(255,59,48,0.35);
+      cursor: not-allowed;
+      text-decoration: line-through;
+    }
+    .slot--past {
+      background: transparent;
+      border-color: rgba(255,255,255,0.03);
+      color: rgba(240,240,242,0.15);
+      cursor: not-allowed;
+    }
+    .slot--start {
+      background: var(--blue) !important;
+      border-color: var(--blue) !important;
+      color: #fff !important;
+      font-weight: 700 !important;
+    }
+    .slot--end {
+      background: #0066CC !important;
+      border-color: #0066CC !important;
+      color: #fff !important;
+      font-weight: 700 !important;
+    }
+    .slot--range {
+      background: rgba(10,132,255,0.18) !important;
+      border-color: rgba(10,132,255,0.35) !important;
+      color: #60a5fa !important;
+    }
+
+    .slot-legend {
+      display: flex; gap: 12px; flex-wrap: wrap;
+      font-family: var(--mono); font-size: 0.68rem;
+      color: var(--text-muted); margin-top: 6px;
+    }
+    .slot-legend-item { display: flex; align-items: center; gap: 5px; }
+    .slot-legend-dot {
+      width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0;
+    }
+
+    .slot-hint {
+      font-size: 0.78rem; color: var(--text-muted);
+      font-family: var(--mono); min-height: 1.1em;
+      margin: 8px 0 2px; text-align: center; font-style: italic;
+    }
+    .slot-summary {
+      padding: 9px 14px; border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-family: var(--mono); font-size: 0.82rem;
+      color: var(--text-muted); margin-top: 8px;
+      display: flex; align-items: center; gap: 8px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .slot-summary--active {
+      border-color: rgba(10,132,255,0.35);
+      color: var(--text);
+    }
+
+
+    .confirm-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+      display: none; align-items: center; justify-content: center; z-index: 200;
+    }
+    .confirm-overlay--open { display: flex; }
+    .confirm-box {
+      background: #111114; border-radius: 22px; padding: 36px;
+      width: 90%; max-width: 400px; border: 1px solid var(--border);
+      text-align: center;
+    }
+    .confirm-box__icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .confirm-box__title { font-size: 1.15rem; font-weight: 800; margin-bottom: 8px; }
+    .confirm-box__text { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5; }
+    .confirm-box__btns { display: flex; gap: 12px; }
+    .confirm-box__btn {
+      flex: 1; padding: 14px; border-radius: 12px; border: none;
+      font-family: var(--sans); font-size: 0.92rem; font-weight: 700;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .confirm-box__btn--cancel { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .confirm-box__btn--cancel:hover { background: var(--surface-hover); }
+    .confirm-box__btn--confirm { background: linear-gradient(135deg, var(--orange) 0%, #E08600 100%); color: #fff; }
+    .confirm-box__btn--confirm:hover { opacity: 0.9; }
+
+    @media (max-width: 900px) {
+      body { overflow-y: auto; }
+      .app {
+        height: auto;
+        min-height: 100vh;
+        padding: 24px 20px;
+        grid-template-rows: auto auto auto;
+        overflow: visible;
+      }
+      .glow { display: none; }
+      .content {
+        grid-template-columns: 1fr;
+        align-content: start;
+        padding-bottom: 40px;
+      }
+      .clock-time { font-size: 2.2rem; }
+      .room-name { font-size: 1.4rem; }
+      .status-title { font-size: 1.5rem; }
+      .status-section { margin-top: 20px; }
+      .timeline { max-height: none; overflow-y: visible; }
+      .sidebar { order: -1; }
+      .slot-grid { max-height: none; overflow-y: visible; }
+      .modal { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="glow glow--top" id="glowTop"></div>
+  <div class="glow glow--bottom"></div>
+
+  <div class="header">
+    <div>
+      <div class="brand-tag"><span class="pulse-dot" id="pulseDot"></span> IVG</div>
+      <h1 class="room-name">Sala de Juntas MTY</h1>
+    </div>
+    <div class="clock">
+      <div class="clock-time" id="clockTime"></div>
+      <div class="clock-date" id="clockDate"></div>
+    </div>
+  </div>
+
+  <div class="status-section">
+    <div id="statusBadge"></div>
+    <div class="status-detail" id="statusDetail"></div>
+  </div>
+
+  <div class="content">
+    <div class="divider"></div>
+    <div>
+      <div class="section-label">PROXIMAS REUNIONES</div>
+      <div class="timeline" id="timeline"></div>
+    </div>
+    <div class="sidebar">
+      <button class="use-now-btn btn-hidden" id="useNowBtn" onclick="openUseNowModal()">
+        <span class="book-btn__icon">&#x26A1;</span> Utilizar Ahora
+      </button>
+      <button class="release-btn btn-hidden" id="releaseBtn" onclick="confirmRelease()">
+        <span class="book-btn__icon">&#x1F513;</span> Liberar Sala
+      </button>
+      <button class="book-btn" onclick="openBookingModal()">
+        <span class="book-btn__icon">&#x1F4C5;</span> Reservar Sala
+      </button>
+      <div class="how-to-book">
+        <div class="how-to-book__title">COMO RESERVAR?</div>
+        <div class="how-to-book__step">1. <span>Presiona <strong>Reservar Sala</strong> o <strong>Utilizar Ahora</strong></span></div>
+        <div class="how-to-book__step">2. <span>Inicia sesion con tu cuenta corporativa</span></div>
+        <div class="how-to-book__step">3. <span>Selecciona fecha y horario disponible</span></div>
+      </div>
+      <div class="meta" id="metaInfo"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== BOOKING MODAL (Reservar Sala) ========== -->
+<div class="modal-overlay" id="bookingModal">
+  <div class="modal">
+    <button class="modal__close" onclick="closeBookingModal()">&times;</button>
+    <div class="modal__title">Reservar Sala de Juntas</div>
+    <div class="modal__subtitle">Inicia sesion con tu cuenta corporativa de Microsoft</div>
+    <div id="bkStep1">
+      <button class="form-submit" style="background:linear-gradient(135deg,#0078d4,#106ebe);margin-top:0" onclick="msalLogin('booking')">
+        &#x1F512; Iniciar sesion con Microsoft
+      </button>
+      <div class="form-msg" id="bkLoginMsg"></div>
+    </div>
+    <div id="bkStep2" style="display:none">
+      <div style="padding:10px 14px;border-radius:10px;background:rgba(52,199,89,0.1);color:#34C759;font-size:0.85rem;margin-bottom:16px">
+        &#x2713; Sesion iniciada como <strong id="bkUserName"></strong>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="bkSubject">Asunto de la reunion</label>
+        <input class="form-input" id="bkSubject" type="text" placeholder="Ej: Junta de seguimiento">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="bkDate">Fecha</label>
+        <input class="form-input" id="bkDate" type="date" onchange="bkRenderSlots()">
+      </div>
+
+      <!-- SELECTOR DE HORARIOS -->
+      <div class="form-group">
+        <div class="slot-section-label">Selecciona horario — toca inicio y luego fin</div>
+        <div class="slot-grid" id="bkSlotGrid"></div>
+        <div class="slot-legend">
+          <div class="slot-legend-item">
+            <div class="slot-legend-dot" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.1)"></div>
+            Disponible
+          </div>
+          <div class="slot-legend-item">
+            <div class="slot-legend-dot" style="background:rgba(255,59,48,0.15);border:1px solid rgba(255,59,48,0.2)"></div>
+            Ocupado
+          </div>
+          <div class="slot-legend-item">
+            <div class="slot-legend-dot" style="background:var(--blue)"></div>
+            Tu selección
+          </div>
+        </div>
+        <div class="slot-hint" id="bkSlotHint">Selecciona la hora de inicio</div>
+        <div class="slot-summary" id="bkSlotSummary">
+          <span>🕐</span><span id="bkSlotSummaryText">Sin horario seleccionado</span>
+        </div>
+      </div>
+
+      <button class="form-submit" id="bkSubmit" onclick="submitBooking()" disabled style="opacity:0.5;cursor:not-allowed">
+        Confirmar Reservacion
+      </button>
+      <div class="form-msg" id="bkMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== USE NOW MODAL (Utilizar Ahora) ========== -->
+<div class="modal-overlay" id="useNowModal">
+  <div class="modal">
+    <button class="modal__close" onclick="closeUseNowModal()">&times;</button>
+    <div class="modal__title">Utilizar Sala Ahora</div>
+    <div class="modal__subtitle">La reunion iniciara en este momento</div>
+    <div id="unStep1">
+      <button class="form-submit form-submit--blue" style="margin-top:0" onclick="msalLogin('usenow')">
+        &#x1F512; Iniciar sesion con Microsoft
+      </button>
+      <div class="form-msg" id="unLoginMsg"></div>
+    </div>
+    <div id="unStep2" style="display:none">
+      <div style="padding:10px 14px;border-radius:10px;background:rgba(52,199,89,0.1);color:#34C759;font-size:0.85rem;margin-bottom:16px">
+        &#x2713; Sesion iniciada como <strong id="unUserName"></strong>
+      </div>
+      <div class="form-now-badge" id="unNowTime">&#x26A1; Inicio: --:-- (ahora)</div>
+      <div class="form-group">
+        <label class="form-label" for="unSubject">Asunto (opcional)</label>
+        <input class="form-input" id="unSubject" type="text" placeholder="Ej: Reunion rapida">
+      </div>
+
+      <!-- SELECTOR DE HORA FIN (solo slots futuros del día de hoy) -->
+      <div class="form-group">
+        <div class="slot-section-label">Hora de finalizacion</div>
+        <div class="slot-grid" id="unSlotGrid"></div>
+        <div class="slot-hint" id="unSlotHint">Selecciona hasta qué hora usarás la sala</div>
+        <div class="slot-summary" id="unSlotSummary">
+          <span>🕐</span><span id="unSlotSummaryText">Sin hora de fin seleccionada</span>
+        </div>
+        <div class="form-hint" style="margin-top:6px">Puedes liberar la sala antes con el boton "Liberar Sala"</div>
+      </div>
+
+      <button class="form-submit form-submit--blue" id="unSubmit" onclick="submitUseNow()" disabled style="opacity:0.5;cursor:not-allowed">
+        Utilizar Ahora
+      </button>
+      <div class="form-msg" id="unMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== RELEASE CONFIRM ========== -->
+<div class="confirm-overlay" id="releaseModal">
+  <div class="confirm-box">
+    <div class="confirm-box__icon">&#x1F513;</div>
+    <div class="confirm-box__title">Liberar Sala</div>
+    <div class="confirm-box__text">Se actualizara la hora de finalizacion de la reunion a la hora actual, liberando la sala inmediatamente.</div>
+    <div class="confirm-box__btns">
+      <button class="confirm-box__btn confirm-box__btn--cancel" onclick="closeReleaseModal()">Cancelar</button>
+      <button class="confirm-box__btn confirm-box__btn--confirm" id="releaseConfirmBtn" onclick="executeRelease()">Liberar</button>
+    </div>
+    <div class="form-msg" id="releaseMsg" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+<script>
+// --- CONFIG ---
+var WEBHOOK_URL = "https://n8n.srv923680.hstgr.cloud/webhook/sala-juntas";
+var REFRESH_MIN = 5;
+var ROOM_MAIL = "saladejuntasmty" + String.fromCharCode(64) + "ivg.com.mx";
+var SLOT_MIN = 15;   // minutos por bloque
+var DAY_START = 7;   // 07:00
+var DAY_END   = 19;  // 19:00
+
+// MSAL
+var msalConfig = {
+  auth: {
+    clientId: "79e1c998-5dd7-4f47-8f13-a5395e778bdb",
+    authority: "https://login.microsoftonline.com/22259b0c-6867-4599-9b02-251f51fd6eff",
+    redirectUri: window.location.origin + window.location.pathname
+  },
+  cache: { cacheLocation: "sessionStorage" }
+};
+var msalApp = new msal.PublicClientApplication(msalConfig);
+var msalToken = null;
+var msalUser = null;
+
+// STATE
+var events = [];
+var lastUpdate = new Date();
+var connStatus = "demo";
+var adHocEventId = null;
+var currentOccupiedEvent = null;
+
+// Slot selection state
+var bkSlotStart = null;
+var bkSlotEnd   = null;
+var unSlotEnd   = null;
+
+// --- CLOCK ---
+function updateClock() {
+  var now = new Date();
+  var h = String(now.getHours()).padStart(2, "0");
+  var m = String(now.getMinutes()).padStart(2, "0");
+  var s = String(now.getSeconds()).padStart(2, "0");
+  document.getElementById("clockTime").innerHTML = h + ":" + m + '<span class="clock-seconds">' + s + "</span>";
+  document.getElementById("clockDate").textContent = now.toLocaleDateString("es-MX", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric"
+  });
+}
+
+// --- FETCH EVENTS ---
+function fetchEvents() {
+  fetch(WEBHOOK_URL, { method: "GET", headers: { "Accept": "application/json" } })
+    .then(function(resp) {
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      return resp.json();
+    })
+    .then(function(data) {
+      var raw = [];
+      if (Array.isArray(data)) {
+        if (data.length > 0 && data[0].events) raw = data[0].events;
+        else if (data.length > 0 && data[0].value) raw = data[0].value;
+        else raw = data;
+      } else if (data.events) { raw = data.events; }
+      else if (data.value) { raw = data.value; }
+
+      events = raw.map(function(d, i) {
+        var startStr = d.start && d.start.dateTime ? d.start.dateTime : (d.start || "");
+        var endStr = d.end && d.end.dateTime ? d.end.dateTime : (d.end || "");
+        if (startStr && startStr.indexOf("Z") === -1 && startStr.indexOf("+") === -1) startStr += "Z";
+        if (endStr && endStr.indexOf("Z") === -1 && endStr.indexOf("+") === -1) endStr += "Z";
+        return {
+          id: d.id || String(i),
+          subject: (d.subject || "Sin titulo").trim(),
+          organizer: d.organizer || "",
+          start: new Date(startStr),
+          end: new Date(endStr)
+        };
+      }).sort(function(a, b) { return a.start - b.start; });
+
+      connStatus = "ok";
+      lastUpdate = new Date();
+      render();
+    })
+    .catch(function(err) {
+      console.error("Fetch error:", err);
+      connStatus = events.length > 0 ? "error" : "demo";
+      lastUpdate = new Date();
+      render();
+    });
+}
+
+// --- STATUS LOGIC ---
+function getRoomStatus() {
+  var now = new Date();
+  var current = null;
+  for (var i = 0; i < events.length; i++) {
+    if (now >= events[i].start && now < events[i].end) { current = events[i]; break; }
+  }
+  if (current) {
+    var minsLeft = Math.max(0, Math.round((current.end - now) / 60000));
+    return { status: "occupied", event: current, minutesLeft: minsLeft };
+  }
+  var upcoming = events.filter(function(e) { return e.start > now; }).sort(function(a, b) { return a.start - b.start; });
+  if (upcoming.length > 0) {
+    var minsUntil = Math.max(0, Math.round((upcoming[0].start - now) / 60000));
+    return { status: "available", nextEvent: upcoming[0], minutesUntilNext: minsUntil };
+  }
+  return { status: "free" };
+}
+
+// --- HELPERS ---
+function fmt(d) {
+  if (!(d instanceof Date)) d = new Date(d);
+  return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "America/Monterrey" });
+}
+function fmtDate(d) {
+  if (!(d instanceof Date)) d = new Date(d);
+  return d.toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short", timeZone: "America/Monterrey" });
+}
+function getNowMTY() {
+  var now = new Date();
+  var parts = now.toLocaleString("en-US", { timeZone: "America/Monterrey", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).split(", ");
+  var dp = parts[0].split("/");
+  var tp = parts[1].split(":");
+  var hh = parseInt(tp[0]) === 24 ? 0 : parseInt(tp[0]);
+  var mm = parseInt(tp[1]);
+  var ss = parseInt(tp[2]);
+  var dateStr = dp[2] + "-" + dp[0] + "-" + dp[1];
+  var timeStr = String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
+  return {
+    dateStr: dateStr,
+    timeStr: timeStr,
+    fullStr: dateStr + "T" + timeStr + ":" + String(ss).padStart(2, "0"),
+    h: hh, m: mm
+  };
+}
+
+// --- SLOT HELPERS ---
+
+/**
+ * Genera array de slots para un día dado (dateStr "YYYY-MM-DD").
+ * Marca como busy los que chocan con eventos en `events[]`.
+ * Marca como past los anteriores a ahora (si es el día de hoy).
+ */
+function buildSlots(dateStr, includeOnlyFutureFrom) {
+  var slots = [];
+  var mty = getNowMTY();
+  var isToday = (dateStr === mty.dateStr);
+
+  for (var h = DAY_START; h < DAY_END; h++) {
+    for (var m = 0; m < 60; m += SLOT_MIN) {
+      var slotStartMin = h * 60 + m;
+      var slotEndMin   = slotStartMin + SLOT_MIN;
+
+      var hh = String(h).padStart(2, "0");
+      var mm = String(m).padStart(2, "0");
+      var heH = Math.floor(slotEndMin / 60);
+      var heM = slotEndMin % 60;
+      var hhEnd = String(heH).padStart(2, "0");
+      var mmEnd = String(heM).padStart(2, "0");
+
+      var isoStart = dateStr + "T" + hh + ":" + mm + ":00";
+      var isoEnd   = dateStr + "T" + hhEnd + ":" + mmEnd + ":00";
+
+      // Pasado: si es hoy y el slot termina antes o igual a ahora
+      var slotEndAbsMin = h * 60 + m + SLOT_MIN;
+      var nowAbsMin = mty.h * 60 + mty.m;
+      var isPast = isToday && slotEndAbsMin <= nowAbsMin;
+
+      // Si se pide solo a partir de cierta hora (para "Utilizar Ahora")
+      if (includeOnlyFutureFrom !== undefined && slotStartMin < includeOnlyFutureFrom) {
+        continue; // omitir slots antes del inicio actual
+      }
+
+      // Busy: algún evento carga ese rango
+      var isBusy = false;
+      if (!isPast) {
+        var slotStartDate = new Date(isoStart + "-06:00"); // MTY = UTC-6
+        var slotEndDate   = new Date(isoEnd   + "-06:00");
+        for (var i = 0; i < events.length; i++) {
+          if (slotStartDate < events[i].end && slotEndDate > events[i].start) {
+            isBusy = true;
+            break;
+          }
+        }
+      }
+
+      slots.push({
+        label:    hh + ":" + mm,
+        labelEnd: hhEnd + ":" + mmEnd,
+        isoStart: isoStart,
+        isoEnd:   isoEnd,
+        busy:     isBusy,
+        past:     isPast
+      });
+    }
+  }
+  return slots;
+}
+
+// =============================================================
+//  BOOKING MODAL — SLOT GRID
+// =============================================================
+var bkSlots = [];
+
+function bkRenderSlots() {
+  var dateStr = document.getElementById("bkDate").value;
+  bkSlotStart = null;
+  bkSlotEnd   = null;
+  if (!dateStr) { document.getElementById("bkSlotGrid").innerHTML = ""; return; }
+  bkSlots = buildSlots(dateStr);
+  bkPaintGrid();
+}
+
+function bkPaintGrid() {
+  var grid = document.getElementById("bkSlotGrid");
+  grid.innerHTML = "";
+  bkSlots.forEach(function(slot, idx) {
+    var el = document.createElement("div");
+    el.className = "slot";
+    el.textContent = slot.label;
+    el.dataset.idx = idx;
+    if (slot.busy) {
+      el.classList.add("slot--busy");
+      el.title = "Ocupado";
+    } else if (slot.past) {
+      el.classList.add("slot--past");
+      el.title = "Hora pasada";
+    } else {
+      el.addEventListener("click", function() { bkOnClick(idx); });
+    }
+    grid.appendChild(el);
+  });
+  bkApplyVisual();
+  bkUpdateSummary();
+  bkUpdateSubmitBtn();
+}
+
+function bkOnClick(idx) {
+  if (bkSlots[idx].busy || bkSlots[idx].past) return;
+
+  if (bkSlotStart === null) {
+    bkSlotStart = idx;
+    bkSlotEnd   = null;
+  } else if (idx === bkSlotStart) {
+    bkSlotStart = null;
+    bkSlotEnd   = null;
+  } else if (bkSlotEnd === null) {
+    var from = Math.min(bkSlotStart, idx);
+    var to   = Math.max(bkSlotStart, idx);
+    // Verificar sin ocupados en rango
+    var conflict = false;
+    for (var i = from; i <= to; i++) {
+      if (bkSlots[i].busy || bkSlots[i].past) { conflict = true; break; }
+    }
+    if (conflict) {
+      document.getElementById("bkSlotHint").textContent = "⚠️ El rango incluye horarios ocupados o pasados";
+      return;
+    }
+    bkSlotStart = from;
+    bkSlotEnd   = to;
+  } else {
+    // Reset y empezar de nuevo
+    bkSlotStart = idx;
+    bkSlotEnd   = null;
+  }
+
+  bkApplyVisual();
+  bkUpdateSummary();
+  bkUpdateSubmitBtn();
+}
+
+function bkApplyVisual() {
+  var els = document.querySelectorAll("#bkSlotGrid .slot");
+  els.forEach(function(el, idx) {
+    if (bkSlots[idx].busy || bkSlots[idx].past) return;
+    el.classList.remove("slot--start", "slot--end", "slot--range");
+    if (bkSlotStart !== null && bkSlotEnd !== null) {
+      if (idx === bkSlotStart)                           el.classList.add("slot--start");
+      else if (idx === bkSlotEnd)                        el.classList.add("slot--end");
+      else if (idx > bkSlotStart && idx < bkSlotEnd)    el.classList.add("slot--range");
+    } else if (bkSlotStart !== null && idx === bkSlotStart) {
+      el.classList.add("slot--start");
+    }
+  });
+
+  var hint = document.getElementById("bkSlotHint");
+  if (bkSlotStart === null) {
+    hint.textContent = "Toca una hora para marcar el inicio";
+  } else if (bkSlotEnd === null) {
+    hint.textContent = "Inicio: " + bkSlots[bkSlotStart].label + " — ahora selecciona el fin";
+  } else {
+    hint.textContent = "✓ Rango seleccionado";
+  }
+}
+
+function bkUpdateSummary() {
+  var summaryEl = document.getElementById("bkSlotSummary");
+  var textEl    = document.getElementById("bkSlotSummaryText");
+  if (bkSlotStart !== null && bkSlotEnd !== null) {
+    var durMin = (bkSlotEnd - bkSlotStart + 1) * SLOT_MIN;
+    var durH = Math.floor(durMin / 60), durM = durMin % 60;
+    var durStr = durH > 0 ? durH + "h" + (durM ? " " + durM + "min" : "") : durM + " min";
+    textEl.textContent = bkSlots[bkSlotStart].label + " – " + bkSlots[bkSlotEnd].labelEnd + "  (" + durStr + ")";
+    summaryEl.classList.add("slot-summary--active");
+  } else if (bkSlotStart !== null) {
+    textEl.textContent = "Inicio: " + bkSlots[bkSlotStart].label + " — falta seleccionar fin";
+    summaryEl.classList.remove("slot-summary--active");
+  } else {
+    textEl.textContent = "Sin horario seleccionado";
+    summaryEl.classList.remove("slot-summary--active");
+  }
+}
+
+function bkUpdateSubmitBtn() {
+  var btn = document.getElementById("bkSubmit");
+  var ok = bkSlotStart !== null && bkSlotEnd !== null;
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? "1" : "0.5";
+  btn.style.cursor  = ok ? "pointer" : "not-allowed";
+}
+
+// =============================================================
+//  USE NOW MODAL — SLOT GRID (solo hora fin)
+// =============================================================
+var unSlots = [];
+
+function unRenderSlots() {
+  var mty = getNowMTY();
+  unSlotEnd = null;
+  // Mostrar solo slots a partir de ahora (no el slot actual si está a mitad)
+  var nowAbsMin = mty.h * 60 + mty.m;
+  unSlots = buildSlots(mty.dateStr, nowAbsMin);
+  // Quitar el primer slot si su inicio es antes de ahora
+  unSlots = unSlots.filter(function(s) {
+    var parts = s.label.split(":");
+    var slotMin = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    return slotMin > nowAbsMin;
+  });
+
+  var grid = document.getElementById("unSlotGrid");
+  grid.innerHTML = "";
+  unSlots.forEach(function(slot, idx) {
+    var el = document.createElement("div");
+    el.className = "slot";
+    el.textContent = slot.label;
+    el.dataset.idx = idx;
+    if (slot.busy) {
+      el.classList.add("slot--busy");
+      el.title = "Ocupado";
+    } else {
+      el.addEventListener("click", function() { unOnClick(idx); });
+    }
+    grid.appendChild(el);
+  });
+
+  unUpdateSummary();
+  unUpdateSubmitBtn();
+}
+
+function unOnClick(idx) {
+  if (unSlots[idx].busy) return;
+  unSlotEnd = idx;
+  // Verificar que no haya ocupados entre ahora y el slot seleccionado
+  var conflict = false;
+  for (var i = 0; i < idx; i++) {
+    if (unSlots[i].busy) { conflict = true; break; }
+  }
+  if (conflict) {
+    document.getElementById("unSlotHint").textContent = "⚠️ Hay reuniones antes de esa hora. Elige un horario libre.";
+    unSlotEnd = null;
+    return;
+  }
+
+  // Pintar selección
+  var els = document.querySelectorAll("#unSlotGrid .slot");
+  els.forEach(function(el, i) {
+    if (unSlots[i].busy) return;
+    el.classList.remove("slot--end", "slot--range");
+    if (i === idx)      el.classList.add("slot--end");
+    else if (i < idx)   el.classList.add("slot--range");
+  });
+
+  document.getElementById("unSlotHint").textContent = "✓ Fin: " + unSlots[idx].label;
+  unUpdateSummary();
+  unUpdateSubmitBtn();
+}
+
+function unUpdateSummary() {
+  var summaryEl = document.getElementById("unSlotSummary");
+  var textEl    = document.getElementById("unSlotSummaryText");
+  if (unSlotEnd !== null) {
+    var mty = getNowMTY();
+    textEl.textContent = mty.timeStr + " – " + unSlots[unSlotEnd].label;
+    summaryEl.classList.add("slot-summary--active");
+  } else {
+    textEl.textContent = "Sin hora de fin seleccionada";
+    summaryEl.classList.remove("slot-summary--active");
+  }
+}
+
+function unUpdateSubmitBtn() {
+  var btn = document.getElementById("unSubmit");
+  var ok = unSlotEnd !== null;
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? "1" : "0.5";
+  btn.style.cursor  = ok ? "pointer" : "not-allowed";
+}
+
+// --- RENDER PRINCIPAL ---
+function render() {
+  var rs = getRoomStatus();
+  var now = new Date();
+  var isOccupied = rs.status === "occupied";
+
+  document.getElementById("glowTop").className = "glow glow--top glow--" + (isOccupied ? "red" : "green");
+  document.getElementById("pulseDot").className = "pulse-dot pulse-dot--" + (isOccupied ? "red" : "green");
+
+  var badgeEl = document.getElementById("statusBadge");
+  badgeEl.innerHTML = isOccupied
+    ? '<div class="status-badge status-badge--red"><span class="status-badge__dot">&#x1F534;</span>OCUPADA</div>'
+    : '<div class="status-badge status-badge--green"><span class="status-badge__dot">&#x1F7E2;</span>DISPONIBLE</div>';
+
+  var detailEl = document.getElementById("statusDetail");
+  if (isOccupied) {
+    var totalMins = (rs.event.end - rs.event.start) / 60000;
+    var pct = Math.max(5, (1 - rs.minutesLeft / totalMins) * 100);
+    detailEl.innerHTML =
+      '<div class="status-title">' + rs.event.subject + '</div>' +
+      '<div class="status-organizer">Organiza: ' + rs.event.organizer + '</div>' +
+      '<div class="status-meta">' +
+        '<span class="time-chip time-chip--red">' + fmt(rs.event.start) + ' &rarr; ' + fmt(rs.event.end) + '</span>' +
+        '<span class="time-chip time-chip--muted">' + rs.minutesLeft + ' min restantes</span>' +
+      '</div>' +
+      '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>';
+    currentOccupiedEvent = rs.event;
+  } else if (rs.status === "available") {
+    detailEl.innerHTML =
+      '<div class="status-title status-title--green">Sala Disponible</div>' +
+      '<div class="status-organizer">Siguiente: ' + rs.nextEvent.subject + ' a las ' + fmt(rs.nextEvent.start) + '</div>';
+    currentOccupiedEvent = null;
+  } else {
+    detailEl.innerHTML =
+      '<div class="status-title status-title--green">Sala Disponible</div>' +
+      '<div class="status-organizer">No hay reuniones programadas</div>';
+    currentOccupiedEvent = null;
+  }
+
+  // Buttons
+  var useNowBtn = document.getElementById("useNowBtn");
+  var releaseBtn = document.getElementById("releaseBtn");
+  if (!isOccupied) {
+    useNowBtn.classList.remove("btn-hidden");
+    releaseBtn.classList.add("btn-hidden");
+  } else {
+    useNowBtn.classList.add("btn-hidden");
+    releaseBtn.classList.remove("btn-hidden");
+  }
+
+  // Timeline
+  var timelineEl = document.getElementById("timeline");
+  var upcoming = events.filter(function(e) { return e.end > now; }).sort(function(a, b) { return a.start - b.start; });
+  if (upcoming.length === 0) {
+    timelineEl.innerHTML = '<div class="timeline-empty"><div class="timeline-empty__icon">&#x1F4C5;</div><div class="timeline-empty__text">Sin reuniones programadas</div></div>';
+  } else {
+    var html = "";
+    for (var i = 0; i < upcoming.length; i++) {
+      var ev = upcoming[i];
+      var isActive = now >= ev.start && now < ev.end;
+      html +=
+        '<div class="event ' + (isActive ? "event--active" : "") + '">' +
+          '<div class="event__bar ' + (isActive ? "event__bar--red" : "event__bar--green") + '"></div>' +
+          '<div class="event__info">' +
+            '<div class="event__name">' + ev.subject + '</div>' +
+            '<div class="event__time">' + fmtDate(ev.start) + ' &middot; ' + fmt(ev.start) + ' &ndash; ' + fmt(ev.end) + '</div>' +
+          '</div>' +
+          (isActive ? '<span class="event__tag event__tag--now">AHORA</span>' : '<span class="event__organizer">' + ev.organizer + '</span>') +
+        '</div>';
+    }
+    timelineEl.innerHTML = html;
+  }
+
+  // Meta
+  var metaEl = document.getElementById("metaInfo");
+  var st = connStatus === "ok" ? '<span class="meta__connected">&#x25CF; Conectado</span>' :
+    connStatus === "error" ? '<span style="color:var(--yellow)">&#x25CF; Reconectando...</span>' :
+    '<span style="color:var(--text-muted)">&#x25CF; Iniciando...</span>';
+  metaEl.innerHTML = st + '<br>Actualizado: ' + fmt(lastUpdate) + '<br>Refresco cada ' + REFRESH_MIN + ' min';
+}
+
+// --- MSAL AUTH ---
+var loginTarget = "booking";
+
+function msalLogin(target) {
+  loginTarget = target || "booking";
+  var msgId = target === "usenow" ? "unLoginMsg" : "bkLoginMsg";
+  var msgEl = document.getElementById(msgId);
+  msgEl.className = "form-msg";
+  msgEl.textContent = "";
+
+  msalApp.loginPopup({ scopes: ["Calendars.ReadWrite"] })
+  .then(function(response) {
+    msalUser = response.account;
+    return msalApp.acquireTokenSilent({ scopes: ["Calendars.ReadWrite"], account: msalUser });
+  })
+  .then(function(tokenResp) {
+    msalToken = tokenResp.accessToken;
+    if (loginTarget === "usenow") showUseNowForm();
+    else showBookingForm();
+  })
+  .catch(function(err) {
+    console.error("MSAL error:", err);
+    msgEl.className = "form-msg form-msg--err";
+    msgEl.textContent = "Error al iniciar sesion. Intenta de nuevo.";
+  });
+}
+
+function showBookingForm() {
+  document.getElementById("bkStep1").style.display = "none";
+  document.getElementById("bkStep2").style.display = "block";
+  document.getElementById("bkUserName").textContent = msalUser.name || msalUser.username;
+  var mty = getNowMTY();
+  document.getElementById("bkDate").value = mty.dateStr;
+  bkRenderSlots();
+}
+
+function showUseNowForm() {
+  document.getElementById("unStep1").style.display = "none";
+  document.getElementById("unStep2").style.display = "block";
+  document.getElementById("unUserName").textContent = msalUser.name || msalUser.username;
+  var mty = getNowMTY();
+  document.getElementById("unNowTime").innerHTML = "&#x26A1; Inicio: " + mty.timeStr + " (ahora)";
+  unRenderSlots();
+}
+
+// --- BOOKING MODAL ---
+function openBookingModal() {
+  document.getElementById("bookingModal").classList.add("modal-overlay--open");
+  document.getElementById("bkMsg").textContent = "";
+  if (msalToken && msalUser) showBookingForm();
+  else { document.getElementById("bkStep1").style.display = "block"; document.getElementById("bkStep2").style.display = "none"; }
+}
+function closeBookingModal() {
+  document.getElementById("bookingModal").classList.remove("modal-overlay--open");
+  bkSlotStart = null; bkSlotEnd = null;
+}
+
+function submitBooking() {
+  if (!msalToken || bkSlotStart === null || bkSlotEnd === null) return;
+  var subject = document.getElementById("bkSubject").value.trim() || "Reunion";
+  var dateStr = document.getElementById("bkDate").value;
+  var msgEl = document.getElementById("bkMsg");
+  var btnEl = document.getElementById("bkSubmit");
+
+  if (!dateStr) {
+    msgEl.className = "form-msg form-msg--err";
+    msgEl.textContent = "Selecciona una fecha.";
+    return;
+  }
+
+  msgEl.textContent = "";
+  btnEl.textContent = "Reservando...";
+  btnEl.disabled = true;
+
+  var payload = {
+    subject: subject,
+    start: { dateTime: bkSlots[bkSlotStart].isoStart, timeZone: "America/Monterrey" },
+    end:   { dateTime: bkSlots[bkSlotEnd].isoEnd,     timeZone: "America/Monterrey" },
+    location: { displayName: "Sala de Juntas MTY" },
+    attendees: [{ emailAddress: { address: ROOM_MAIL, name: "Sala de Juntas MTY" }, type: "resource" }]
+  };
+
+  createEvent(payload, msgEl, btnEl, "Confirmar Reservacion", function() {
+    bkSlotStart = null; bkSlotEnd = null;
+    setTimeout(function() { closeBookingModal(); fetchEvents(); }, 2000);
+  });
+}
+
+// --- USE NOW MODAL ---
+function openUseNowModal() {
+  document.getElementById("useNowModal").classList.add("modal-overlay--open");
+  document.getElementById("unMsg").textContent = "";
+  if (msalToken && msalUser) showUseNowForm();
+  else { document.getElementById("unStep1").style.display = "block"; document.getElementById("unStep2").style.display = "none"; }
+}
+function closeUseNowModal() {
+  document.getElementById("useNowModal").classList.remove("modal-overlay--open");
+  unSlotEnd = null;
+}
+
+function submitUseNow() {
+  if (!msalToken || unSlotEnd === null) return;
+  var subject = document.getElementById("unSubject").value.trim() || "Uso inmediato";
+  var mty = getNowMTY();
+  var msgEl = document.getElementById("unMsg");
+  var btnEl = document.getElementById("unSubmit");
+
+  msgEl.textContent = "";
+  btnEl.textContent = "Reservando...";
+  btnEl.disabled = true;
+
+  var payload = {
+    subject: subject,
+    start: { dateTime: mty.fullStr,                 timeZone: "America/Monterrey" },
+    end:   { dateTime: unSlots[unSlotEnd].isoStart, timeZone: "America/Monterrey" },
+    location: { displayName: "Sala de Juntas MTY" },
+    attendees: [{ emailAddress: { address: ROOM_MAIL, name: "Sala de Juntas MTY" }, type: "resource" }]
+  };
+
+  createEvent(payload, msgEl, btnEl, "Utilizar Ahora", function(data) {
+    if (data && data.id) {
+      adHocEventId = data.id;
+      try { sessionStorage.setItem("adHocEventId", data.id); } catch(e) {}
+    }
+    unSlotEnd = null;
+    setTimeout(function() { closeUseNowModal(); fetchEvents(); }, 2000);
+  });
+}
+
+// =============================================================
+//  SHARED: CREATE EVENT
+// =============================================================
+function createEvent(payload, msgEl, btnEl, btnLabel, onSuccess) {
+  fetch("https://graph.microsoft.com/v1.0/me/events", {
+    method: "POST",
+    headers: { "Authorization": "Bearer " + msalToken, "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  })
+  .then(function(data) {
+    msgEl.className = "form-msg form-msg--ok";
+    msgEl.textContent = "Sala reservada exitosamente";
+    btnEl.textContent = btnLabel;
+    btnEl.disabled = false;
+    if (onSuccess) onSuccess(data);
+  })
+  .catch(function(err) {
+    console.error("Booking error:", err);
+    msgEl.className = "form-msg form-msg--err";
+    msgEl.textContent = "Error al reservar. Intenta de nuevo.";
+    btnEl.textContent = btnLabel;
+    btnEl.disabled = false;
+  });
+}
+
+// --- RELEASE SALA ---
+function confirmRelease() {
+  document.getElementById("releaseModal").classList.add("confirm-overlay--open");
+  document.getElementById("releaseMsg").textContent = "";
+}
+function closeReleaseModal() {
+  document.getElementById("releaseModal").classList.remove("confirm-overlay--open");
+}
+
+function executeRelease() {
+  var msgEl = document.getElementById("releaseMsg");
+  msgEl.className = "form-msg";
+  msgEl.textContent = "";
+  if (!msalToken) {
+    msalApp.loginPopup({ scopes: ["Calendars.ReadWrite"] })
+    .then(function(response) {
+      msalUser = response.account;
+      return msalApp.acquireTokenSilent({ scopes: ["Calendars.ReadWrite"], account: msalUser });
+    })
+    .then(function(tokenResp) {
+      msalToken = tokenResp.accessToken;
+      doRelease();
+    })
+    .catch(function(err) {
+      msgEl.className = "form-msg form-msg--err";
+      msgEl.textContent = "Error de autenticacion. Intenta de nuevo.";
+    });
+    return;
+  }
+  doRelease();
+}
+
+function doRelease() {
+  if (!msalToken || !currentOccupiedEvent) return;
+  var msgEl = document.getElementById("releaseMsg");
+  var btnEl = document.getElementById("releaseConfirmBtn");
+  btnEl.textContent = "Liberando...";
+  btnEl.disabled = true;
+
+  if (adHocEventId) { endEventNow(adHocEventId); return; }
+
+  var now = new Date();
+  fetch("https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=" + now.toISOString() + "&endDateTime=" + new Date(now.getTime() + 60000).toISOString() + "&$select=id,subject,start,end", {
+    headers: { "Authorization": "Bearer " + msalToken, "Prefer": 'outlook.timezone="America/Monterrey"' }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.value && data.value.length > 0) {
+      endEventNow(data.value[0].id);
+    } else {
+      msgEl.className = "form-msg form-msg--err";
+      msgEl.textContent = "No se encontro la reservacion en tu calendario. Solo el organizador puede liberar.";
+      btnEl.textContent = "Liberar"; btnEl.disabled = false;
+    }
+  })
+  .catch(function(err) {
+    msgEl.className = "form-msg form-msg--err";
+    msgEl.textContent = "Error al buscar la reservacion.";
+    btnEl.textContent = "Liberar"; btnEl.disabled = false;
+  });
+}
+
+function endEventNow(eventId) {
+  var msgEl = document.getElementById("releaseMsg");
+  var btnEl = document.getElementById("releaseConfirmBtn");
+  var mty = getNowMTY();
+
+  fetch("https://graph.microsoft.com/v1.0/me/events/" + eventId, {
+    method: "PATCH",
+    headers: { "Authorization": "Bearer " + msalToken, "Content-Type": "application/json", "Prefer": 'outlook.timezone="America/Monterrey"' },
+    body: JSON.stringify({ end: { dateTime: mty.fullStr, timeZone: "America/Monterrey" } })
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  })
+  .then(function() {
+    adHocEventId = null;
+    try { sessionStorage.removeItem("adHocEventId"); } catch(e) {}
+    msgEl.className = "form-msg form-msg--ok";
+    msgEl.textContent = "Sala liberada exitosamente";
+    btnEl.textContent = "Liberar"; btnEl.disabled = false;
+    setTimeout(function() { closeReleaseModal(); fetchEvents(); }, 1500);
+  })
+  .catch(function(err) {
+    msgEl.className = "form-msg form-msg--err";
+    msgEl.textContent = "Error al liberar. Verifica que seas el organizador.";
+    btnEl.textContent = "Liberar"; btnEl.disabled = false;
+  });
+}
+
+// --- INIT ---
+function init() {
+  updateClock();
+  setInterval(updateClock, 1000);
+  fetchEvents();
+  setInterval(fetchEvents, REFRESH_MIN * 60 * 1000);
+  try { var s = sessionStorage.getItem("adHocEventId"); if (s) adHocEventId = s; } catch(e) {}
+}
+init();
+</script>
+</body>
+</html>
