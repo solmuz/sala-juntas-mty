@@ -192,6 +192,19 @@
       display: flex; gap: 8px;
     }
     .how-to-book__step strong { color: var(--text); }
+
+    .meta__refresh {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: none; border: 1px solid var(--border);
+      color: var(--text-muted); font-family: var(--mono);
+      font-size: 0.68rem; padding: 3px 8px; border-radius: 6px;
+      cursor: pointer; margin-top: 6px; transition: all 0.2s;
+      width: 100%;
+    }
+    .meta__refresh:hover { border-color: var(--blue); color: var(--blue); }
+    .meta__refresh.spinning { animation: spin 0.6s linear; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
     .meta {
       font-family: var(--mono); font-size: 0.7rem;
       color: var(--text-muted); margin-top: 8px; line-height: 1.7;
@@ -563,10 +576,11 @@
   </div>
 </div>
 
-<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+<!-- MSAL cargado antes del código principal -->
+<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js" crossorigin="anonymous"></script>
 <script>
 // --- CONFIG ---
-var WEBHOOK_URL = "https://n8n.srv923680.hstgr.cloud/webhook/sala-juntas";
+var WEBHOOK_URL = "/sala-juntas-mty/api.php?action=events";
 var REFRESH_MIN = 5;
 var ROOM_MAIL = "saladejuntasmty" + String.fromCharCode(64) + "ivg.com.mx";
 var SLOT_MIN = 15;   // minutos por bloque
@@ -1000,7 +1014,9 @@ function render() {
   } else if (rs.status === "available") {
     detailEl.innerHTML =
       '<div class="status-title status-title--green">Sala Disponible</div>' +
-      '<div class="status-organizer">Siguiente: ' + rs.nextEvent.subject + ' a las ' + fmt(rs.nextEvent.start) + '</div>';
+      '<div class="status-organizer">Siguiente: ' + rs.nextEvent.subject + ' a las ' + fmt(rs.nextEvent.start) +
+      (rs.minutesUntilNext <= 60 ? ' <span class="time-chip time-chip--muted" style="font-size:0.72rem;padding:3px 10px">en ' + rs.minutesUntilNext + ' min</span>' : '') +
+      '</div>';
     currentOccupiedEvent = null;
   } else {
     detailEl.innerHTML =
@@ -1037,7 +1053,7 @@ function render() {
             '<div class="event__name">' + ev.subject + '</div>' +
             '<div class="event__time">' + fmtDate(ev.start) + ' &middot; ' + fmt(ev.start) + ' &ndash; ' + fmt(ev.end) + '</div>' +
           '</div>' +
-          (isActive ? '<span class="event__tag event__tag--now">AHORA</span>' : '<span class="event__organizer">' + ev.organizer + '</span>') +
+          (isActive ? '<span class="event__tag event__tag--now">AHORA</span>' : '<span class="event__organizer">Reservó: ' + ev.organizer + '</span>') +
         '</div>';
     }
     timelineEl.innerHTML = html;
@@ -1048,7 +1064,7 @@ function render() {
   var st = connStatus === "ok" ? '<span class="meta__connected">&#x25CF; Conectado</span>' :
     connStatus === "error" ? '<span style="color:var(--yellow)">&#x25CF; Reconectando...</span>' :
     '<span style="color:var(--text-muted)">&#x25CF; Iniciando...</span>';
-  metaEl.innerHTML = st + '<br>Actualizado: ' + fmt(lastUpdate) + '<br>Refresco cada ' + REFRESH_MIN + ' min';
+  metaEl.innerHTML = st + '<br>Actualizado: ' + fmt(lastUpdate) + '<br>Refresco cada ' + REFRESH_MIN + ' min<br><button class="meta__refresh" onclick="manualRefresh(this)">&#x21BB; Actualizar ahora</button>';
 }
 
 // --- MSAL AUTH ---
@@ -1300,6 +1316,18 @@ function endEventNow(eventId) {
   });
 }
 
+// --- MANUAL REFRESH ---
+function manualRefresh(btn) {
+  if (btn) {
+    btn.textContent = '↻ Actualizando...';
+    btn.disabled = true;
+  }
+  fetchEvents();
+  setTimeout(function() {
+    if (btn) { btn.innerHTML = '&#x21BB; Actualizar ahora'; btn.disabled = false; }
+  }, 2000);
+}
+
 // --- INIT ---
 function init() {
   updateClock();
@@ -1309,6 +1337,21 @@ function init() {
   try { var s = sessionStorage.getItem("adHocEventId"); if (s) adHocEventId = s; } catch(e) {}
 }
 init();
+
+// --- Exponer funciones públicas al window (requerido por onclick del HTML) ---
+window.openUseNowModal = openUseNowModal;
+window.confirmRelease = confirmRelease;
+window.openBookingModal = openBookingModal;
+window.closeBookingModal = closeBookingModal;
+window.msalLogin = msalLogin;
+window.submitBooking = submitBooking;
+window.closeUseNowModal = closeUseNowModal;
+window.submitUseNow = submitUseNow;
+window.closeReleaseModal = closeReleaseModal;
+window.executeRelease = executeRelease;
+window.bkRenderSlots = bkRenderSlots;
+window.manualRefresh = manualRefresh;
+
 </script>
 </body>
 </html>

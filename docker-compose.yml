@@ -1,0 +1,27 @@
+services:
+  sala-juntas:
+    build: .
+    container_name: sala-juntas-mty
+    env_file: .env
+    restart: unless-stopped
+    networks:
+      - traefik-net
+      - caddy-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sala-juntas.rule=Host(`ivggroup.com.mx`) && PathPrefix(`/sala-juntas-mty`)"
+      - "traefik.http.routers.sala-juntas.entrypoints=websecure"
+      - "traefik.http.routers.sala-juntas.tls=true"
+      - "traefik.http.routers.sala-juntas.tls.certresolver=letsencrypt"
+      - "traefik.http.services.sala-juntas.loadbalancer.server.port=80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  traefik-net:
+    external: true
+  caddy-net:
+    external: true
