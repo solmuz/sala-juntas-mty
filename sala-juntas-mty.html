@@ -68,6 +68,16 @@
       50% { opacity: 0.5; transform: scale(1.4); }
     }
     .room-name { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+    .room-tabs { display: flex; gap: 10px; margin-top: 14px; }
+    .room-tab {
+      display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      color: var(--text); font: 700 0.85rem var(--sans); cursor: pointer;
+    }
+    .room-tab:hover { background: var(--surface-hover); }
+    .room-tab--active { border-color: var(--blue); background: var(--blue-dim); }
+    .room-tab__state { color: var(--text-muted); font-weight: 500; font-size: 0.75rem; }
+    .pulse-dot--off { background: var(--text-muted); }
     .clock { text-align: right; }
     .clock-time { font-family: var(--mono); font-size: 3rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
     .clock-seconds { font-size: 1.2rem; opacity: 0.35; margin-left: 3px; }
@@ -423,8 +433,9 @@
 
   <div class="header">
     <div>
-      <div class="brand-tag"><span class="pulse-dot" id="pulseDot"></span> IVG</div>
-      <h1 class="room-name">Sala de Juntas MTY</h1>
+      <div class="brand-tag"><span class="pulse-dot" id="pulseDot"></span> <span id="brandName">IVG</span></div>
+      <h1 class="room-name" id="roomName">Sala de Juntas MTY</h1>
+      <div class="room-tabs" id="roomTabs"></div>
     </div>
     <div class="clock">
       <div class="clock-time" id="clockTime"></div>
@@ -582,10 +593,21 @@
 // --- CONFIG ---
 var WEBHOOK_URL = "/sala-juntas-mty/api.php?action=events";
 var REFRESH_MIN = 5;
-var ROOM_MAIL = "saladejuntasmty" + String.fromCharCode(64) + "ivg.com.mx";
 var SLOT_MIN = 15;   // minutos por bloque
-var DAY_START = 7;   // 07:00
-var DAY_END   = 19;  // 19:00
+// Salas. Comparten buzón y calendario: las de VAGO se distinguen por el prefijo `tag` en el asunto.
+// ponytail: separar por asunto; si hay buzón propio para VAGO, poner su mail y quitar tag.
+var SHARED_MAIL = "saladejuntasmty" + String.fromCharCode(64) + "ivg.com.mx";
+var ROOMS = {
+  ivg:  { brand: "IVG",  name: "Sala de Juntas MTY",  tag: "",       dayStart: 7, dayEnd: 19, mail: SHARED_MAIL },
+  vago: { brand: "VAGO", name: "Sala de Juntas VAGO", tag: "[VAGO] ", dayStart: 7, dayEnd: 19, mail: SHARED_MAIL }
+};
+function roomOf(subject) {
+  return ROOM_IDS.filter(function(id) { return ROOMS[id].tag && subject.indexOf(ROOMS[id].tag) === 0; })[0] || "ivg";
+}
+var ROOM_IDS = Object.keys(ROOMS);
+var urlRoom = new URLSearchParams(location.search).get("room");
+var currentRoom = ROOMS[urlRoom] ? urlRoom : "ivg";
+function room() { return ROOMS[currentRoom]; }
 
 // MSAL
 var msalConfig = {
@@ -601,9 +623,10 @@ var msalToken = null;
 var msalUser = null;
 
 // STATE
-var events = [];
+var eventsByRoom = { ivg: [], vago: [] };
+var connByRoom = { ivg: "demo", vago: "demo" };
+var events = eventsByRoom[currentRoom];   // eventos de la sala activa
 var lastUpdate = new Date();
-var connStatus = "demo";
 var adHocEventId = null;
 var currentOccupiedEvent = null;
 
@@ -640,7 +663,7 @@ function fetchEvents() {
       } else if (data.events) { raw = data.events; }
       else if (data.value) { raw = data.value; }
 
-      events = raw.map(function(d, i) {
+      var all = raw.map(function(d, i) {
         var startStr = d.start && d.start.dateTime ? d.start.dateTime : (d.start || "");
         var endStr = d.end && d.end.dateTime ? d.end.dateTime : (d.end || "");
         if (startStr && startStr.indexOf("Z") === -1 && startStr.indexOf("+") === -1) startStr += "Z";
@@ -654,30 +677,38 @@ function fetchEvents() {
         };
       }).sort(function(a, b) { return a.start - b.start; });
 
-      connStatus = "ok";
+      eventsByRoom = { ivg: [], vago: [] };
+      all.forEach(function(e) {
+        var id = roomOf(e.subject);
+        e.subject = e.subject.slice(ROOMS[id].tag.length);
+        eventsByRoom[id].push(e);
+      });
+      events = eventsByRoom[currentRoom];
+      ROOM_IDS.forEach(function(id) { connByRoom[id] = "ok"; });
       lastUpdate = new Date();
       render();
     })
     .catch(function(err) {
       console.error("Fetch error:", err);
-      connStatus = events.length > 0 ? "error" : "demo";
+      ROOM_IDS.forEach(function(id) { connByRoom[id] = eventsByRoom[id].length > 0 ? "error" : "demo"; });
       lastUpdate = new Date();
       render();
     });
 }
 
 // --- STATUS LOGIC ---
-function getRoomStatus() {
+function getRoomStatus(list) {
+  list = list || events;
   var now = new Date();
   var current = null;
-  for (var i = 0; i < events.length; i++) {
-    if (now >= events[i].start && now < events[i].end) { current = events[i]; break; }
+  for (var i = 0; i < list.length; i++) {
+    if (now >= list[i].start && now < list[i].end) { current = list[i]; break; }
   }
   if (current) {
     var minsLeft = Math.max(0, Math.round((current.end - now) / 60000));
     return { status: "occupied", event: current, minutesLeft: minsLeft };
   }
-  var upcoming = events.filter(function(e) { return e.start > now; }).sort(function(a, b) { return a.start - b.start; });
+  var upcoming = list.filter(function(e) { return e.start > now; }).sort(function(a, b) { return a.start - b.start; });
   if (upcoming.length > 0) {
     var minsUntil = Math.max(0, Math.round((upcoming[0].start - now) / 60000));
     return { status: "available", nextEvent: upcoming[0], minutesUntilNext: minsUntil };
@@ -724,7 +755,7 @@ function buildSlots(dateStr, includeOnlyFutureFrom) {
   var mty = getNowMTY();
   var isToday = (dateStr === mty.dateStr);
 
-  for (var h = DAY_START; h < DAY_END; h++) {
+  for (var h = room().dayStart; h < room().dayEnd; h++) {
     for (var m = 0; m < 60; m += SLOT_MIN) {
       var slotStartMin = h * 60 + m;
       var slotEndMin   = slotStartMin + SLOT_MIN;
@@ -984,8 +1015,57 @@ function unUpdateSubmitBtn() {
   btn.style.cursor  = ok ? "pointer" : "not-allowed";
 }
 
+// --- UI POR SALA ---
+function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+
+function tabState(id) {
+  var r = ROOMS[id], c = connByRoom[id];
+  if (c === "demo") return { cls: "off", text: "Sin datos" };
+  return getRoomStatus(eventsByRoom[id]).status === "occupied"
+    ? { cls: "red", text: "En uso" } : { cls: "green", text: "Libre" };
+}
+
+function renderTabs() {
+  var el = document.getElementById("roomTabs");
+  el.innerHTML = "";
+  ROOM_IDS.forEach(function(id) {
+    var st = tabState(id);
+    var b = document.createElement("button");
+    b.className = "room-tab" + (id === currentRoom ? " room-tab--active" : "");
+    b.setAttribute("aria-pressed", id === currentRoom ? "true" : "false");
+    b.innerHTML = '<span class="pulse-dot pulse-dot--' + st.cls + '"></span>' + esc(ROOMS[id].brand) +
+      ' <span class="room-tab__state">' + st.text + '</span>';
+    b.addEventListener("click", function() { switchRoom(id); });
+    el.appendChild(b);
+  });
+}
+
+function loadAdHoc() {
+  adHocEventId = null;
+  try { adHocEventId = sessionStorage.getItem("adHocEventId_" + currentRoom); } catch(e) {}
+}
+
+function switchRoom(id) {
+  if (id === currentRoom) return;
+  currentRoom = id;
+  events = eventsByRoom[id];
+  currentOccupiedEvent = null;
+  closeBookingModal(); closeUseNowModal(); closeReleaseModal();
+  loadAdHoc();
+  try { history.replaceState(null, "", "?room=" + id); } catch(e) {}
+  render();
+}
+
 // --- RENDER PRINCIPAL ---
 function render() {
+  var r = room();
+  document.title = r.name;
+  document.getElementById("roomName").textContent = r.name;
+  document.getElementById("brandName").textContent = r.brand;
+  document.querySelector("#bookingModal .modal__title").textContent = "Reservar " + r.name;
+  document.querySelector("#useNowModal .modal__title").textContent = "Utilizar " + r.name + " Ahora";
+  renderTabs();
+
   var rs = getRoomStatus();
   var now = new Date();
   var isOccupied = rs.status === "occupied";
@@ -1003,8 +1083,8 @@ function render() {
     var totalMins = (rs.event.end - rs.event.start) / 60000;
     var pct = Math.max(5, (1 - rs.minutesLeft / totalMins) * 100);
     detailEl.innerHTML =
-      '<div class="status-title">' + rs.event.subject + '</div>' +
-      '<div class="status-organizer">Organiza: ' + rs.event.organizer + '</div>' +
+      '<div class="status-title">' + esc(rs.event.subject) + '</div>' +
+      '<div class="status-organizer">Organiza: ' + esc(rs.event.organizer) + '</div>' +
       '<div class="status-meta">' +
         '<span class="time-chip time-chip--red">' + fmt(rs.event.start) + ' &rarr; ' + fmt(rs.event.end) + '</span>' +
         '<span class="time-chip time-chip--muted">' + rs.minutesLeft + ' min restantes</span>' +
@@ -1014,7 +1094,7 @@ function render() {
   } else if (rs.status === "available") {
     detailEl.innerHTML =
       '<div class="status-title status-title--green">Sala Disponible</div>' +
-      '<div class="status-organizer">Siguiente: ' + rs.nextEvent.subject + ' a las ' + fmt(rs.nextEvent.start) +
+      '<div class="status-organizer">Siguiente: ' + esc(rs.nextEvent.subject) + ' a las ' + fmt(rs.nextEvent.start) +
       (rs.minutesUntilNext <= 60 ? ' <span class="time-chip time-chip--muted" style="font-size:0.72rem;padding:3px 10px">en ' + rs.minutesUntilNext + ' min</span>' : '') +
       '</div>';
     currentOccupiedEvent = null;
@@ -1050,10 +1130,10 @@ function render() {
         '<div class="event ' + (isActive ? "event--active" : "") + '">' +
           '<div class="event__bar ' + (isActive ? "event__bar--red" : "event__bar--green") + '"></div>' +
           '<div class="event__info">' +
-            '<div class="event__name">' + ev.subject + '</div>' +
+            '<div class="event__name">' + esc(ev.subject) + '</div>' +
             '<div class="event__time">' + fmtDate(ev.start) + ' &middot; ' + fmt(ev.start) + ' &ndash; ' + fmt(ev.end) + '</div>' +
           '</div>' +
-          (isActive ? '<span class="event__tag event__tag--now">AHORA</span>' : '<span class="event__organizer">Reservó: ' + ev.organizer + '</span>') +
+          (isActive ? '<span class="event__tag event__tag--now">AHORA</span>' : '<span class="event__organizer">Reservó: ' + esc(ev.organizer) + '</span>') +
         '</div>';
     }
     timelineEl.innerHTML = html;
@@ -1061,6 +1141,7 @@ function render() {
 
   // Meta
   var metaEl = document.getElementById("metaInfo");
+  var connStatus = connByRoom[currentRoom];
   var st = connStatus === "ok" ? '<span class="meta__connected">&#x25CF; Conectado</span>' :
     connStatus === "error" ? '<span style="color:var(--yellow)">&#x25CF; Reconectando...</span>' :
     '<span style="color:var(--text-muted)">&#x25CF; Iniciando...</span>';
@@ -1142,11 +1223,11 @@ function submitBooking() {
   btnEl.disabled = true;
 
   var payload = {
-    subject: subject,
+    subject: room().tag + subject,
     start: { dateTime: bkSlots[bkSlotStart].isoStart, timeZone: "America/Monterrey" },
     end:   { dateTime: bkSlots[bkSlotEnd].isoEnd,     timeZone: "America/Monterrey" },
-    location: { displayName: "Sala de Juntas MTY" },
-    attendees: [{ emailAddress: { address: ROOM_MAIL, name: "Sala de Juntas MTY" }, type: "resource" }]
+    location: { displayName: room().name },
+    attendees: [{ emailAddress: { address: room().mail, name: room().name }, type: "resource" }]
   };
 
   createEvent(payload, msgEl, btnEl, "Confirmar Reservacion", function() {
@@ -1179,17 +1260,17 @@ function submitUseNow() {
   btnEl.disabled = true;
 
   var payload = {
-    subject: subject,
+    subject: room().tag + subject,
     start: { dateTime: mty.fullStr,                 timeZone: "America/Monterrey" },
     end:   { dateTime: unSlots[unSlotEnd].isoStart, timeZone: "America/Monterrey" },
-    location: { displayName: "Sala de Juntas MTY" },
-    attendees: [{ emailAddress: { address: ROOM_MAIL, name: "Sala de Juntas MTY" }, type: "resource" }]
+    location: { displayName: room().name },
+    attendees: [{ emailAddress: { address: room().mail, name: room().name }, type: "resource" }]
   };
 
   createEvent(payload, msgEl, btnEl, "Utilizar Ahora", function(data) {
     if (data && data.id) {
       adHocEventId = data.id;
-      try { sessionStorage.setItem("adHocEventId", data.id); } catch(e) {}
+      try { sessionStorage.setItem("adHocEventId_" + currentRoom, data.id); } catch(e) {}
     }
     unSlotEnd = null;
     setTimeout(function() { closeUseNowModal(); fetchEvents(); }, 2000);
@@ -1267,13 +1348,19 @@ function doRelease() {
   if (adHocEventId) { endEventNow(adHocEventId); return; }
 
   var now = new Date();
-  fetch("https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=" + now.toISOString() + "&endDateTime=" + new Date(now.getTime() + 60000).toISOString() + "&$select=id,subject,start,end", {
+  fetch("https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=" + now.toISOString() + "&endDateTime=" + new Date(now.getTime() + 60000).toISOString() + "&$select=id,subject,start,end,attendees", {
     headers: { "Authorization": "Bearer " + msalToken, "Prefer": 'outlook.timezone="America/Monterrey"' }
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
-    if (data.value && data.value.length > 0) {
-      endEventNow(data.value[0].id);
+    // solo eventos de ESTA sala (el usuario puede tener otras reuniones traslapadas)
+    var mine = (data.value || []).filter(function(e) {
+      return roomOf(e.subject || "") === currentRoom && (e.attendees || []).some(function(a) {
+        return a.emailAddress && (a.emailAddress.address || "").toLowerCase() === room().mail.toLowerCase();
+      });
+    });
+    if (mine.length > 0) {
+      endEventNow(mine[0].id);
     } else {
       msgEl.className = "form-msg form-msg--err";
       msgEl.textContent = "No se encontro la reservacion en tu calendario. Solo el organizador puede liberar.";
@@ -1303,7 +1390,7 @@ function endEventNow(eventId) {
   })
   .then(function() {
     adHocEventId = null;
-    try { sessionStorage.removeItem("adHocEventId"); } catch(e) {}
+    try { sessionStorage.removeItem("adHocEventId_" + currentRoom); } catch(e) {}
     msgEl.className = "form-msg form-msg--ok";
     msgEl.textContent = "Sala liberada exitosamente";
     btnEl.textContent = "Liberar"; btnEl.disabled = false;
@@ -1334,7 +1421,9 @@ function init() {
   setInterval(updateClock, 1000);
   fetchEvents();
   setInterval(fetchEvents, REFRESH_MIN * 60 * 1000);
-  try { var s = sessionStorage.getItem("adHocEventId"); if (s) adHocEventId = s; } catch(e) {}
+  setInterval(render, 60 * 1000);   // los indicadores Libre/En uso cambian sin esperar al fetch
+  loadAdHoc();
+  renderTabs();
 }
 init();
 
@@ -1351,6 +1440,7 @@ window.closeReleaseModal = closeReleaseModal;
 window.executeRelease = executeRelease;
 window.bkRenderSlots = bkRenderSlots;
 window.manualRefresh = manualRefresh;
+window.switchRoom = switchRoom;
 
 </script>
 </body>
